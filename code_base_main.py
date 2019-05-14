@@ -11,7 +11,7 @@ import re
 import random
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import KFold, cross_val_score, GridSearchCV
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, \
@@ -123,7 +123,7 @@ def TfIdf(aList, bList):
     # Get features
     feature_names = tf.get_feature_names()
     # Number of features
-    top_n = 10
+    top_n = 100
     # Save to top_features top_n features
     top_features = [feature_names[i] for i in indices[:top_n]]
     # 5 Fold Cross-validation
@@ -229,14 +229,11 @@ def CompareAlgos(classifierRF, classifierMNB):
         evaluation.append(cv_evaluation)
     return(evaluation, msg)
 
-#---------------------- Plots - Visualization Function -----------------------#
-
-
 
 ################################ MAIN BODY ####################################
 
 if __name__ == "__main__":
-
+    
     # LOAD reviews from myDataset_en.csv file and store to dataframe
     def LoadReviews():
         myReviewsList = []
@@ -286,8 +283,8 @@ if __name__ == "__main__":
     #print(pd.DataFrame(tags_percent))
 
 
-############# Execute the following code when creating a new model ############
 # =============================================================================
+# ############# Execute the following code when creating a new model ############
 # #------------------------ Call Classifier Functions ------------------------#
 # 
 #     RF_classifier, RF_predictions = RFClassifier(X_train, y_train, X_test)
@@ -310,6 +307,8 @@ if __name__ == "__main__":
 #     #print(MNBconf_matrix)
 #     #print(MNBclassif_report)
 #     #print(MNBaccuracy)
+# 
+# ############## Execute the above code when creating a new model ###############
 # =============================================================================
 
 #------------------------- Call Load Model Function --------------------------#
@@ -335,6 +334,45 @@ if __name__ == "__main__":
 
     evaluation, msg = CompareAlgos(RF_classifier_sm, MNB_classifier_sm)
 
-#-----------------------------------------------------------------------------#
+#------------ Grid search to choose best hyperparameters of RF ---------------#
+    
+    def RFGridSearch(RFclassifier):
+        parameters = {
+                'n_estimators': [1000, 3000],
+                'max_depth': [70, 80],
+                'min_samples_leaf': [2, 3],
+                'criterion': ['gini', 'entropy'],
+                'bootstrap': [True, False]
+                }
+        
+        grid_search = GridSearchCV(estimator = RFclassifier, param_grid = \
+                                   parameters, cv = 5, n_jobs = -1)
+        
+        grid_search.fit(X_train, y_train)
+        RFbest_parameters = grid_search.best_params_
+        return(RFbest_parameters)
 
-# Confusion matrix plot with yellowbrick????
+#------------ Grid search to choose best hyperparameters of MNB --------------#
+
+    def MNBGridSearch(MNBclassifier):
+        parameters = {
+                'alpha': [0.1, 0.3, 0.5, 0.7, 0.9],
+                'fit_prior': [True, False],
+                'class_prior': [True, False]
+                }
+        
+        grid_search = GridSearchCV(estimator = MNBclassifier, param_grid = \
+                                   parameters, cv = 5, n_jobs = -1)
+        
+        grid_search.fit(X_train, y_train)
+        MNBbest_parameters = grid_search.best_params_
+        return(MNBbest_parameters)
+    
+# =============================================================================
+#     # Call RFGridSearch
+#     RFbest_parameters = RFGridSearch(RF_classifier_sm)
+#     print('RF best parameters', RFbest_parameters)
+# =============================================================================
+    # Call MNBGridSearch
+    MNBbest_parameters = MNBGridSearch(MNB_classifier_sm)
+    print('RF best parameters', MNBbest_parameters)

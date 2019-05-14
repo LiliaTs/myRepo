@@ -8,125 +8,150 @@ import re
 from nltk.stem import WordNetLemmatizer
 from google.cloud import translate
 import pickle
-import code_base_thesis_main as main
+import code_base_main as main
 import random
 
-###############################################################################
 
-# READ reviews from files, do the LABELLING and save pos and neg reviews them
-# in myList
-# Read XLS reviews file
-myFile = xlrd.open_workbook('sample_data_gr.xls')
-mySheet = myFile.sheet_by_index(0)
-num_rows = mySheet.nrows
-tmpList = []
-myList = []
-for row in range(0, num_rows):
-    myReviews = mySheet.cell_value(row, 1)
-    myRatings = mySheet.cell_value(row, 4)
-    tmpList = [myReviews, myRatings]
-    myList.append(tmpList)
+#---------------------------- Load Greek Dataset -----------------------------#
 
-# Change ratings to labels
-for review in myList:
-    if review[1] == 1 or review[1] == 2:
-        review[1] = 'Negative'
-    elif review[1] == 4 or review[1] == 5:
-        review[1] = 'Positive'        
-#print(pd.DataFrame(myList))
+def LoadReviews():
+    greek_reviews = []
+    with open('greek_dataset.csv', 'r', encoding='utf-8', newline='') \
+    as f:
+        rd  = csv.reader(f)
+        for line in rd:
+            greek_reviews.append(line)
+    return(greek_reviews)
 
-# Remove neutral reviews
-for review in myList:
-    if review[1] == 3:
-        myList.remove(review)
-#print(pd.DataFrame(myList))
+#-------------------------- Translation Function -----------------------------#
 
-# Read CSV reviews file
-with open('GRGE_small.csv', encoding="utf8") as myCSV:
-    readCSV = csv.reader(myCSV, delimiter=',')
-    tmpList = []
-    for row in readCSV:
-        #print(row)
-        if row[2] != 'Neutral':
-            tmpList = [row[1], row[2]]
-            myList.append(tmpList)
-#print(myList)
-#print(len(myList))
-
-###############################################################################
-
-# # T-R-A-N-S-L-A-T-I-O-N FUNCTION - Google Cloud Translation API
+# Using Google Cloud Translation API
 translateClient = translate.Client()
-def sentTranslation(aList):
-    transList = []
+def gr2enTranslation(aList):
+    gr2en_translated = []
     for review in aList:
         tmp = []
         translate = translateClient.translate(review[0], target_language='en')
         tmp = [translate['translatedText'], review[-1]]
         myStr = ' '.join(tmp)
-        transList.append(myStr)
-    return(transList)
+        gr2en_translated.append(myStr)
+    return(gr2en_translated)
+    
+#-------------------- Save gr2en_translated to Gr2En.csv ---------------------#
 
-# 1. Translation for whole SENTENCES (before tokenize)
-# CALL preprocessing FUNCTIONS
-cleanTweetsListSent = main.CleanTweets(myList)
-# CALL translation FUNCTION
-transSentList = sentTranslation(cleanTweetsListSent[:20])
-# CALL the rest preprocessing FUNCTIONS
-tokensListSent = main.Tokenize(transSentList)
-alphaListSent = main.NonAlphaLower(tokensListSent)
-stopwordsFreeListSent = main.removeStopwords(alphaListSent)
-lemmatizedListSent = main.Lemmatizing(stopwordsFreeListSent)
-taggedListSent = main.POSTagging(lemmatizedListSent)
+def Gr2En():    
+    with open('gr2en_dataset.txt', 'w', encoding="utf-8") as f:
+        for review in gr2en_translated:
+            f.write('%s\n' % review)
 
-# CALL feature extraction FUNCTIONS
-allWordsSent = main.allWords(taggedListSent)
-#print(all_words.plot(10)) #draw plot for first 10 words
-myFeaturesSent = main.Features(allWordsSent)
-myFeatureListSent = main.myReviewsFeatures(taggedListSent, myFeaturesSent)
+#------------------------- Load Translated Dataset ---------------------------#
 
-# CLASSIFIERS
-# a. Model based on this script reviews
-# shuffle my features list or I can write some code to choose same # of pos &
-# neg reviews for each set -> training set - 1000 (500 pos & 500 neg) reviews
-random.shuffle(myFeatureListSent)
+def LoadSavedGr2En():
+    greek_reviews = []
+    with open('gr2en_dataset.txt', 'r', encoding="utf-8") as f:
+        for line in f:
+            greek_reviews.append(line)
+    return(greek_reviews)
 
-training_set = myFeatureListSent[:10]
-testing_set = myFeatureListSent[10:]
+#gr2en_translated = LoadSavedGr2En()
 
-# Naive Bayes
-classifier = nltk.NaiveBayesClassifier.train(training_set)
-print("Naive Algo accuracy:", (nltk.classify.accuracy(classifier, testing_set))*100, '%')
-classifier.show_most_informative_features(10)
+################################## MAIN BODY ##################################
+    
+if __name__ == '__main__':
+    
+#---------------------- Call preprocessing Functions -------------------------#
 
-#-------------------------------------VS--------------------------------------#
+    greek_reviews = LoadReviews()
+    #print(pd.DataFrame(greek_reviews))
+    gr_cleanTweets = main.CleanTweets(greek_reviews[:10])
+    #print(pd.DataFrame(gr_cleanTweets))
+    gr2en_translated = gr2enTranslation(gr_cleanTweets)
+    #print(pd.DataFrame(gr2en_translated))
+    Gr2En() # save to file
+    
+    
+# =============================================================================
+#     trans_tokenized = main.Tokenize(gr2en_translated)
+#     #print(pd.DataFrame(trans_tokenized))
+#     trans_alpha = main.NonAlphaLower(trans_tokenized)
+#     #print(pd.DataFrame(trans_alpha))
+#     trans_stopwordsfree = main.removeStopwords(trans_alpha)
+#     #print(pd.DataFrame(trans_stopwordsfree))
+#     trans_lemmatized = main.Lemmatizing(trans_stopwordsfree)
+#     #print(pd.DataFrame(trans_lemmatized))
+#     trans_tagged = main.POSTagging(trans_lemmatized)
+#     #print(pd.DataFrame(trans_tagged))
+# 
+# #-------------------- Call Feature Extraction Functions ----------------------#
+# 
+#     trans_reviews, trans_labels = main.DatasetSplit(trans_tagged)
+#     #print(pd.DataFrame(trans_reviews))
+#     #print(pd.DataFrame(trans_labels))
+#     trans_top_feat, trans_kfold, trans_X, trans_X_train, trans_X_test, \
+#     trans_y_train, trans_y_test = main.TfIdf(trans_reviews, trans_labels)
+#     #print(pd.DataFrame(trans_top_feat))
+#     trans_tags_percent = main.POSinTopFeat()
+#     #print(pd.DataFrame(trans_tags_percent))
+# 
+# 
+# ############# Execute the following code when creating a new model ############
+# #------------------------ Call Classifier Functions ------------------------#
+# 
+#     trans_RF_classifier, trans_RF_predictions = \
+#     main.RFClassifier(trans_X_train, trans_y_train, trans_X_test)
+#     trans_MNB_classifier, trans_MNB_predictions = \
+#     main.MNBClassifier(trans_X_train, trans_y_train, trans_X_test)
+# 
+# #------------------------- Call Save Model Function ------------------------#
+# 
+#     main.SaveModel('trans_RF_classifier', trans_RF_classifier)
+#     main.SaveModel('trans_MNB_classifier', trans_MNB_classifier)
+#     
+# #---------------------- Call Model Evaluation Function ---------------------#
+# 
+#     trans_RFconf_matrix, trans_RFclassif_report, trans_RFaccuracy = \
+#     main.ModelEval(trans_y_test, trans_RF_predictions)
+#     #print(trans_RFconf_matrix)
+#     #print(trans_RFclassif_report)
+#     #print(trans_RFaccuracy)
+#     trans_MNBconf_matrix, trans_MNBclassif_report, trans_MNBaccuracy = \
+#     main.ModelEval(trans_y_test, trans_MNB_predictions)
+#     #print(trans_MNBconf_matrix)
+#     #print(trans_MNBclassif_report)
+#     #print(trans_MNBaccuracy)
+# 
+# ############## Execute the above code when creating a new model ###############
+# 
+# 
+# ###############################################################################
+# # Test machine-translated greek reviews using saved model for english reviews #
+# #------------------------- Call Load Model Function --------------------------#
+#     
+#     trans_RF_classifier_sm, trans_RF_predictions_sm = \
+#     main.LoadModel('RF_classifier')
+#     trans_MNB_classifier_sm, trans_MNB_predictions_sm = \
+#     main.LoadModel('MNB_classifier')
+# 
+#    
+# #------------- Call Model Evaluation Function for Saved Models ---------------#
+# 
+#     trans_RFconf_matrix_sm, trans_RFclassif_report_sm, trans_RFaccuracy_sm = \
+#     main.ModelEval(trans_y_test, trans_RF_predictions_sm)
+#     #print(trans_RFconf_matrix_sm)
+#     #print(trans_RFclassif_report_sm)
+#     #print(trans_RFaccuracy_sm)
+#     trans_MNBconf_matrix_sm, trans_MNBclassif_report_sm, trans_MNBaccuracy_sm\
+#     = main.ModelEval(trans_y_test, trans_MNB_predictions_sm)   
+#     #print(trans_MNBconf_matrix_sm)
+#     #print(trans_MNBclassif_report_sm)
+#     #print(trans_MNBaccuracy_sm)
+#     
+# #------------------------ Call Compare Algos Function ------------------------#
+# 
+#     trans_evaluation, trans_msg = main.CompareAlgos(trans_RF_classifier_sm, \
+#                                    trans_MNB_classifier_sm)
+# 
+# ###############################################################################
+# =============================================================================
 
-# b. TEST reviews based on the model from the main script 
-# open myFeat file created in code_base.py and write to list
-myFeatsList = []
-with open('myFeatures.txt', 'r') as f:
-    for line in f:
-        myFeatures = line[:-1]
-        myFeatsList.append(myFeatures)
 
-# English features in translated-to-english greek reviews existence
-myTransGrFeatureList = []
-for review in taggedListSent:
-    myFeatures = {}
-    for word in myFeatsList:
-        myFeatures[word] = (word in review[:-1])
-        tmp = (myFeatures, review[-1])
-    myTransGrFeatureList.append(tmp)
-
-# Test using the saved model for english
-# open classifier file from the main script
-classifier_f = open("naivebayes.pickle", "rb")
-classifierMain = pickle.load(classifier_f)
-classifier_f.close()
-
-print("Naive Algo accuracy percent:", (nltk.classify.accuracy(classifierMain, myTransGrFeatureList))*100)
-classifierMain.show_most_informative_features(10)
-
-# 1. translation for sentences (before tokenize) and then classifier
-# 2. translation for words (after tokenize) and then classfier
-# compare results and use code_base_main classifier for the best of the above

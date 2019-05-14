@@ -1,8 +1,11 @@
 import json
 import csv
 import pandas as pd
-# LOAD, READ and save reviews files to a single file 
-# Load and Label JSON file FUNCTION
+
+
+############################## ENGLISH DATASET ################################
+#------------------ Load Json files and Labelling Function -------------------#
+
 def LoadJson(filepath):
     myPosList = []
     myNegList = []
@@ -22,32 +25,38 @@ def LoadJson(filepath):
     myList = myPosList + myNegList
     return(myList)
                 
-# Load and Label tweets from tweets_en.csv file
-with open('tweets_en.csv', encoding="ISO-8859-1") as myCSV:
-    myPosTweetsList = []
-    myNegTweetsList = []
-    readCSV = csv.reader(myCSV, delimiter=',')
-    for row in readCSV:
-        if row[0] == '0':
-            myNegTweetsList.append([row[5], 'Negative'])
-            if len(myNegTweetsList) == 400: # number for negative reviews
-                break
-    for row in readCSV:
-        if row[0] == '4':
-            myPosTweetsList.append([row[5], 'Positive'])
-            if len(myPosTweetsList) == len(myNegTweetsList): # neg equals pos
-                break
-myTweetsList = myPosTweetsList + myNegTweetsList
-# Call LoadJson & LOAD Amazon reviews from 'Musical_Instruments.json'
-# & save to myInstruList
-myInstruList = LoadJson('Musical_Instruments.json')
-# Call LoadJson & LOAD Amazon reviews from 'Cell_Phones_and_Accessories.json'
-# & save to myCellList
-myCellList = LoadJson('Cell_Phones_and_Accessories.json')
-# Merge the three lists to myReviewsList
-myReviewsList = myInstruList + myCellList + myTweetsList
-# print(pd.DataFrame(myReviewsList))
-# Save myReviewsList to myDataset_en.csv
-with open('myDataset_en.csv', 'w', encoding="utf-8", newline='') as f:
-    wr = csv.writer(f)
-    wr.writerows(myReviewsList)
+#--------------- Load tweets from csv and Labelling Function -----------------#
+
+def LoadTweetsEN(filepath):
+    with open(filepath, encoding="ISO-8859-1") as myCSV:
+        myPosTweetsList = []
+        myNegTweetsList = []
+        readCSV = csv.reader(myCSV, delimiter=',')
+        for row in readCSV:
+            if row[0] == '0':
+                myNegTweetsList.append([row[5], 'Negative'])
+                if len(myNegTweetsList) == 400: # number for negative reviews
+                    break
+        for row in readCSV:
+            if row[0] == '4':
+                myPosTweetsList.append([row[5], 'Positive'])
+                if len(myPosTweetsList) == len(myNegTweetsList): # neg equals pos
+                    break
+    myTweetsList = myPosTweetsList + myNegTweetsList
+    return(myTweetsList)
+
+#----------------------------- Call functions --------------------------------#
+if __name__ == "__main__":
+    myInstruList = LoadJson('Musical_Instruments.json')
+    myCDList = LoadJson('CDs_and_Vinyl.json')
+    myCellList = LoadJson('Cell_Phones_and_Accessories.json')
+    myTweetsList = LoadTweetsEN('tweets_en.csv')
+    
+    # Merge the 4 lists to one -> myReviewsList
+    myReviewsList = myInstruList + myCDList + myCellList + myTweetsList
+    # print(pd.DataFrame(myReviewsList))
+    
+    # Save myReviewsList to myDataset_en.csv
+    with open('myDataset_en.csv', 'w', encoding="utf-8", newline='') as f:
+        wr = csv.writer(f)
+        wr.writerows(myReviewsList)
