@@ -114,7 +114,7 @@ def DatasetSplit(aList):
 
 #----------------------------- TF-IDF Function -------------------------------#
 
-def TfIdf(aList, bList):
+def TfIdf(aList):
     tf = TfidfVectorizer(max_features=1500, lowercase=False, min_df=4, \
                          max_df=0.7)
     X = tf.fit_transform(aList).toarray()
@@ -127,19 +127,21 @@ def TfIdf(aList, bList):
     # Save to top_features top_n features
     top_features = [feature_names[i] for i in indices[:top_n]]
     # 5 Fold Cross-validation
-    bl = np.array(bList)
+    return(top_features, X)
+
+def TrainTestSet(aList):
+    Lbls = np.array(aList)
     kfold = KFold(n_splits=5, shuffle=True, random_state=1)
     for train_set,test_set in kfold.split(X):
         X_train, X_test = X[train_set], X[test_set]
-        y_train, y_test = bl[train_set], bl[test_set]
+        y_train, y_test = Lbls[train_set], Lbls[test_set]
     
-    return(top_features, kfold, X, X_train, X_test, y_train, y_test)
+    return(kfold, X_train, X_test, y_train, y_test)
 
 #--------------------------- POSinTopFeat Function ---------------------------#
 
 #% of POS tags participating in 10 top features Function
 def POSinTopFeat():
-    # Split top_features to words and tags
     word_tags = []
     for f in top_features:
         tmp = f.split('_')
@@ -152,11 +154,9 @@ def POSinTopFeat():
     counted_tags = cnt.most_common()
     #print(counted_tags)    
     # Calculate percentage of POS
-    top_n = 10
     result = []
-    for tag,myTuple in counted_tags:
-        tag_percent = (myTuple/top_n)*100
-        tmp = str(tag) + ': ' + str(tag_percent) + ' %'
+    for tag,counted in counted_tags:
+        tmp = str(tag) + ': ' + str(counted) + ' %'
         result.append(tmp)
     return(result)
     
@@ -165,7 +165,8 @@ def POSinTopFeat():
 #--------------------- Random Forest Classifier Function ---------------------#
 
 def RFClassifier(revTrain, lblTrain, revTest):
-    RF_classifier = RandomForestClassifier(n_estimators=1000, random_state=0)
+    RF_classifier = RandomForestClassifier(n_estimators=1000, \
+                                           criterion='entropy', random_state=0)
     # Train the algorithm
     RF_classifier.fit(revTrain, lblTrain)
     # Predict sentiment
@@ -193,23 +194,6 @@ def ModelEval(lblTest, Clf_predictions):
     accuracy = accuracy_score(lblTest, Clf_predictions)*100
     return(conf_matrix, classif_report, accuracy)
 
-#---------------------------- SaveModel Function -----------------------------#
-
-def SaveModel(filePath, classifier):
-    # Save model to filePath pickle file for direct use
-    with open(filePath, 'wb') as picklefile:
-        pickle.dump(classifier, picklefile)
-        
-#---------------------------- LoadModel Function -----------------------------#
-
-def LoadModel(filePath):
-    # Load model from filePath and store to model variable
-    with open(filePath, 'rb') as training_model:
-        stored_model = pickle.load(training_model)      
-    # Use saved model
-    predictions_sm = stored_model.predict(X_test)
-    return(stored_model, predictions_sm)
-
 #--------------------- Compare RF - MNB algos Function -----------------------#
 
 def CompareAlgos(classifierRF, classifierMNB):
@@ -229,6 +213,55 @@ def CompareAlgos(classifierRF, classifierMNB):
         evaluation.append(cv_evaluation)
     return(evaluation, msg)
 
+#---------------------------- SaveModel Function -----------------------------#
+
+def SaveModel(filePath, classifier):
+    # Save model to filePath pickle file for direct use
+    with open(filePath, 'wb') as picklefile:
+        pickle.dump(classifier, picklefile)
+        
+#---------------------------- LoadModel Function -----------------------------#
+
+def LoadModel(filePath):
+    # Load model from filePath and store to model variable
+    with open(filePath, 'rb') as training_model:
+        stored_model = pickle.load(training_model)      
+    # Use saved model
+    predictions_sm = stored_model.predict(X_test)
+    return(stored_model, predictions_sm)
+
+#------------ Grid search to choose best hyperparameters for RF --------------#
+    
+def RFGridSearch(RFclassifier):
+    parameters = {
+            'n_estimators': [1000, 3000],
+            'criterion': ['gini', 'entropy'],
+            'bootstrap': [True, False]
+            }
+    
+    grid_search = GridSearchCV(estimator = RFclassifier, param_grid = \
+                               parameters, cv = 5, n_jobs = -1)
+    
+    grid_search.fit(X_train, y_train)
+    RFbest_parameters = grid_search.best_params_
+    return(RFbest_parameters)
+
+#------------ Grid search to choose best hyperparameters for MNB -------------#
+
+def MNBGridSearch(MNBclassifier):
+    parameters = {
+            'alpha': [0.1, 0.3, 0.5, 0.7, 0.9],
+            'fit_prior': [True, False],
+            'class_prior': [True, False]
+            }
+    
+    grid_search = GridSearchCV(estimator = MNBclassifier, param_grid = \
+                               parameters, cv = 5, n_jobs = -1)
+    
+    grid_search.fit(X_train, y_train)
+    MNBbest_parameters = grid_search.best_params_
+    return(MNBbest_parameters)
+
 
 ################################ MAIN BODY ####################################
 
@@ -237,8 +270,8 @@ if __name__ == "__main__":
     # LOAD reviews from myDataset_en.csv file and store to dataframe
     def LoadReviews():
         myReviewsList = []
-        with open('myDataset_en.csv', 'r', encoding="ISO-8859-1", newline='') \
-        as f:
+        with open('english_files/myDataset_en.csv', 'r', \
+                  encoding="ISO-8859-1", newline='') as f:
             rd  = csv.reader(f)
             for line in rd:
                 myReviewsList.append(line)
@@ -276,103 +309,51 @@ if __name__ == "__main__":
     reviewsList, labelsList = DatasetSplit(taggedList)
     #print(pd.DataFrame(reviewsList))
     #print(pd.DataFrame(labelsList))
-    top_features, kfold, X, X_train, X_test, y_train, y_test = \
-    TfIdf(reviewsList, labelsList)
+    top_features, X = TfIdf(reviewsList)
     #print(pd.DataFrame(top_features))
     tags_percent = POSinTopFeat()
     #print(pd.DataFrame(tags_percent))
 
+#----------------------- Call TrainTestSet Function --------------------------#
 
-# =============================================================================
-# ############# Execute the following code when creating a new model ############
-# #------------------------ Call Classifier Functions ------------------------#
-# 
-#     RF_classifier, RF_predictions = RFClassifier(X_train, y_train, X_test)
-#     MNB_classifier, MNB_predictions = MNBClassifier(X_train, y_train, X_test)
-# 
-# #------------------------- Call Save Model Function ------------------------#
-# 
-#     SaveModel('RF_classifier', RF_classifier)
-#     SaveModel('MNB_classifier', MNB_classifier)
-#     
-# #---------------------- Call Model Evaluation Function ---------------------#
-# 
-#     RFconf_matrix, RFclassif_report, RFaccuracy = \
-#     ModelEval(y_test, RF_predictions)
-#     #print(RFconf_matrix)
-#     #print(RFclassif_report)
-#     #print(RFaccuracy)
-#     MNBconf_matrix, MNBclassif_report, MNBaccuracy = \
-#     ModelEval(y_test, MNB_predictions)
-#     #print(MNBconf_matrix)
-#     #print(MNBclassif_report)
-#     #print(MNBaccuracy)
-# 
-# ############## Execute the above code when creating a new model ###############
-# =============================================================================
+    kfold, X_train, X_test, y_train, y_test = TrainTestSet(labelsList)
 
-#------------------------- Call Load Model Function --------------------------#
+#------------------------ Call Classifier Functions ------------------------#
+
+    RF_classifier, RF_predictions = RFClassifier(X_train, y_train, X_test)
+    MNB_classifier, MNB_predictions = MNBClassifier(X_train, y_train, X_test)
     
-    RF_classifier_sm, RF_predictions_sm = LoadModel('RF_classifier')
-    MNB_classifier_sm, MNB_predictions_sm = LoadModel('MNB_classifier')
+#---------------------- Call Model Evaluation Function ---------------------#
 
-   
-#------------- Call Model Evaluation Function for Saved Models ---------------#
-
-    RFconf_matrix_sm, RFclassif_report_sm, RFaccuracy_sm = \
-    ModelEval(y_test, RF_predictions_sm)
+    RFconf_matrix, RFclassif_report, RFaccuracy = \
+    ModelEval(y_test, RF_predictions)
     #print(RFconf_matrix)
     #print(RFclassif_report)
     #print(RFaccuracy)
-    MNBconf_matrix_sm, MNBclassif_report_sm, MNBaccuracy_sm = \
-    ModelEval(y_test, MNB_predictions_sm)   
+    MNBconf_matrix, MNBclassif_report, MNBaccuracy = \
+    ModelEval(y_test, MNB_predictions)
     #print(MNBconf_matrix)
     #print(MNBclassif_report)
     #print(MNBaccuracy)
-    
+
 #------------------------ Call Compare Algos Function ------------------------#
 
-    evaluation, msg = CompareAlgos(RF_classifier_sm, MNB_classifier_sm)
-
-#------------ Grid search to choose best hyperparameters of RF ---------------#
+    evaluation, msg = CompareAlgos(RF_classifier, MNB_classifier)
     
-    def RFGridSearch(RFclassifier):
-        parameters = {
-                'n_estimators': [1000, 3000],
-                'max_depth': [70, 80],
-                'min_samples_leaf': [2, 3],
-                'criterion': ['gini', 'entropy'],
-                'bootstrap': [True, False]
-                }
-        
-        grid_search = GridSearchCV(estimator = RFclassifier, param_grid = \
-                                   parameters, cv = 5, n_jobs = -1)
-        
-        grid_search.fit(X_train, y_train)
-        RFbest_parameters = grid_search.best_params_
-        return(RFbest_parameters)
+#------------------------- Call Save Model Function ------------------------#
 
-#------------ Grid search to choose best hyperparameters of MNB --------------#
+    SaveModel('saved_models/RF_classifier', RF_classifier)
+    SaveModel('saved_models/MNB_classifier', MNB_classifier)
 
-    def MNBGridSearch(MNBclassifier):
-        parameters = {
-                'alpha': [0.1, 0.3, 0.5, 0.7, 0.9],
-                'fit_prior': [True, False],
-                'class_prior': [True, False]
-                }
-        
-        grid_search = GridSearchCV(estimator = MNBclassifier, param_grid = \
-                                   parameters, cv = 5, n_jobs = -1)
-        
-        grid_search.fit(X_train, y_train)
-        MNBbest_parameters = grid_search.best_params_
-        return(MNBbest_parameters)
-    
 # =============================================================================
+# #--------------- Call GridSearch to find best hyperparameters ----------------#
+# #------------------------- TAKES A LONG TO EXECUTE! --------------------------#
+# 
 #     # Call RFGridSearch
-#     RFbest_parameters = RFGridSearch(RF_classifier_sm)
+#     RFbest_parameters = RFGridSearch(RF_classifier)
 #     print('RF best parameters', RFbest_parameters)
+#     # Call MNBGridSearch
+#     MNBbest_parameters = MNBGridSearch(MNB_classifier)
+#     print('RF best parameters', MNBbest_parameters)
 # =============================================================================
-    # Call MNBGridSearch
-    MNBbest_parameters = MNBGridSearch(MNB_classifier_sm)
-    print('RF best parameters', MNBbest_parameters)
+    MNBbest_parameters = MNBGridSearch(MNB_classifier)

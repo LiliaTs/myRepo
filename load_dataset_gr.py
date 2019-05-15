@@ -74,13 +74,14 @@ def LoadTiffXLSX(filepath):
 
 #------------------------------ Call Functions -------------------------------#
     
-techList = LoadTechXLS('sample_data_gr.xls')
-politicalList = LoadPolCSV('GRGE_sentiment.csv')
-tiffList, negList, posList = LoadTiffXLSX('tiff_gr.xlsx')
+techList = LoadTechXLS('gr2en_files/sample_data_gr.xls')
+politicalList = LoadPolCSV('gr2en_files/GRGE_sentiment.csv')
+tiffList, negList, posList = LoadTiffXLSX('gr2en_files/tiff_gr.xlsx')
 greek_reviews = techList + politicalList + tiffList
 #print(pd.DataFrame(greek_reviews))
 
 # Save myReviewsList to greek_dataset.csv
-with open('greek_dataset.csv', 'w', encoding="utf-8", newline='') as f:
+with open('gr2en_files/greek_dataset.csv', 'w', encoding="utf-8", \
+          newline='') as f:
     wr = csv.writer(f)
     wr.writerows(greek_reviews)

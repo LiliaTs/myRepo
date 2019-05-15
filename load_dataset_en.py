@@ -47,16 +47,17 @@ def LoadTweetsEN(filepath):
 
 #----------------------------- Call functions --------------------------------#
 if __name__ == "__main__":
-    myInstruList = LoadJson('Musical_Instruments.json')
-    myCDList = LoadJson('CDs_and_Vinyl.json')
-    myCellList = LoadJson('Cell_Phones_and_Accessories.json')
-    myTweetsList = LoadTweetsEN('tweets_en.csv')
+    myInstruList = LoadJson('english_files/Musical_Instruments.json')
+    myCDList = LoadJson('english_files/CDs_and_Vinyl.json')
+    myCellList = LoadJson('english_files/Cell_Phones_and_Accessories.json')
+    myTweetsList = LoadTweetsEN('english_files/tweets_en.csv')
     
-    # Merge the 4 lists to one -> myReviewsList
-    myReviewsList = myInstruList + myCDList + myCellList + myTweetsList
-    # print(pd.DataFrame(myReviewsList))
+    # Merge the 4 lists to one -> reviewsList
+    reviewsList = myInstruList + myCDList + myCellList + myTweetsList
+    # print(pd.DataFrame(reviewsList))
     
-    # Save myReviewsList to myDataset_en.csv
-    with open('myDataset_en.csv', 'w', encoding="utf-8", newline='') as f:
+    # Save reviewsList to myDataset_en.csv
+    with open('english_files/myDataset_en.csv', 'w', encoding="utf-8", \
+              newline='') as f:
         wr = csv.writer(f)
-        wr.writerows(myReviewsList)
+        wr.writerows(reviewsList)
