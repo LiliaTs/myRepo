@@ -1,5 +1,5 @@
 # myRepo
 
-# Multi-domain and cross-lingual opinion mining for english and greek reviews of several Amazon domains and twitter domain with nltk and sklearn.
-# Multi-domain and cross-lingual opinion mining for greek reviews of tech and twitter domains with nltk and sklearn.
-# Machine translation of greek reviews using Google Translate API.
+# Cross-lingual Sentiment Analysis
+# Sentiment analysis for machine translated (Google Translate API) Greek tweets (Greek to English) with nltk and scikit-learn.
+# Sentiment analysis for Greek tweets with SpaCy and scikit-learn.
